@@ -31,7 +31,7 @@ def get_file_key(uploaded_file):
     """Generate unique key for uploaded file"""
     if uploaded_file is None:
         return None
-    return f"{uploaded_file.name}_{uploaded_file.size}_hello"
+    return f"{uploaded_file.name}_{uploaded_file.size}"
 
 
 def format_file_size(size_bytes):

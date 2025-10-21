@@ -21,25 +21,11 @@ def setup_page_config():
 def render_header():
     """Shows the main header section"""
     st.title(f"{PAGE_ICON} HR_Onboarding Assistant")
-    st.subheader("Intelligent Document Search & Analysis")
     
 
-def render_sidebar(document_loader):
+def render_uploaded_files():
     """Sidebar UI with expandable stored file list"""
     with st.sidebar:
-        # App info
-        st.markdown("""
-        <div style="
-            background: white;
-            padding: 0.8rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        ">
-            <h4 style="margin-bottom: 0.5rem;">🔍 Advanced RAG System</h4>
-            <p style="font-size: 0.9rem; margin: 0;">Upload company documents and ask intelligent questions using LLM-powered retrieval.</p>
-        </div>
-        """, unsafe_allow_html=True)
 
         # Expandable stored files section
         stored_files = list_stored_files()
@@ -75,14 +61,6 @@ def render_upload_section(document_loader):
         
         # Upload area with simple styling
         st.info("📁 **Drag & Drop Your Document**\n\nSupported: PDF, png, jpg, jpeg, tiff, bmp")
-        
-        # Show current supported extensions
-        #with st.expander("ℹ️ View All Supported Formats", expanded=False):
-        #    col1, col2 = st.columns(2)
-        #    with col1:
-        #        st.write(f"**Supported extensions:** {document_loader.get_supported_extensions_display()}")
-        #    with col2:
-        #        st.write(f"**Total formats:** {len(document_loader.get_supported_extensions())}")
         
         # File uploader
         user_file = st.file_uploader(
@@ -131,34 +109,25 @@ def render_upload_placeholder():
     """, unsafe_allow_html=True)
 
 
-def render_question_section(user_file):
-    """Shows the question input section"""
-    st.markdown("---")
-    st.markdown("### 💬 Ask Questions About Your Document")
+def render_question_section(user_files):
+    """Renders the question section with current document info"""
     
-    # Display current file info
-    file_display = f"📄 **Current Document:** {user_file.name}"
-    if hasattr(user_file, 'type') and user_file.type:
-        file_display += f" ({user_file.type})"
+    if not user_files:
+        return "", None  # nothing uploaded
+
+    # If multiple files uploaded, take the first one for display
+    if isinstance(user_files, list):
+        first_file = user_files[0]
+    else:
+        first_file = user_files
+
+    file_display = f"📄 **Current Document:** {first_file.name}"
     st.markdown(file_display)
-    
-    # Question input
-    col1, col2 = st.columns([4, 1])
-    
-    with col1:
-        question = st.text_input(
-            'Enter your question:', 
-            placeholder="What is the main topic of this document?",
-            disabled=not user_file,
-            help="Ask any question about the content of your uploaded document"
-        )
-    
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
-        ask_button = st.button("Ask", use_container_width=True)
+
+    question = st.text_input("Ask a question about the document:")
+    ask_button = st.button("Ask")
     
     return question, ask_button
-
 
 def render_answer_section(result):
     """Shows the answer section"""

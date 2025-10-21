@@ -23,7 +23,7 @@ import streamlit as st
 from config import QUESTION_PLACEHOLDER
 from utils import clear_chroma_db, initialize_session_state
 from ui_components import (
-    setup_page_config, render_header, render_sidebar, 
+    setup_page_config, render_header, render_uploaded_files, 
     render_upload_section, render_upload_placeholder,
     render_question_section, render_answer_section
 )
@@ -183,10 +183,13 @@ def main():
     # Setup page and render UI
     setup_page_config()
     render_header()
-    render_sidebar(document_loader)
+    
     
     # Handle file upload
     user_file = render_upload_section(document_loader)
+    
+    # Show list of previously uploaded files in sidebar
+    render_uploaded_files()
     
     # Process uploaded file
     if user_file:

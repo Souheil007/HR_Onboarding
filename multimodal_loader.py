@@ -90,12 +90,6 @@ class MultiFormatDocumentLoader:
             documents = loader.load()
             # Print the number of chunks/pages loaded
             print(f"Loaded {len(documents)} document chunks")
-
-            # Inspect each chunk
-            for i, doc in enumerate(documents):
-                print(f"\n--- Document chunk {i+1} ---")
-                print("Text snippet:", doc.page_content[:])  # show first 500 chars
-                print("Metadata:", doc.metadata)
         else:
             # Image → perform OCR
             ocr_result = self.perform_ocr(str(file_path))

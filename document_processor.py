@@ -6,7 +6,7 @@ import time
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-
+from langchain_core.documents import Document
 
 
 from config import CHUNK_SIZE, CHUNK_OVERLAP, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
@@ -83,12 +83,13 @@ class DocumentProcessor:
             # Step 3: Split into chunks
             progress_bar.progress(75)
             status_text.text("✂️ Splitting into chunks...")
-            doc_splits = self._create_document_chunks(documents)
-            
+            doc_splits = self._create_document_chunks(documents, current_file_key)
+    
             # Step 4: Create embeddings
             progress_bar.progress(90)
             status_text.text("🧠 Creating embeddings...")
-            chroma_db = self._create_vector_database(doc_splits)
+            chroma_db = self._create_vector_database(doc_splits, current_file_key)
+
             
             # Step 5: Complete
             progress_bar.progress(100)
@@ -122,33 +123,64 @@ class DocumentProcessor:
             status_text.empty()
             raise e
     
-    def _create_document_chunks(self, documents):
-        """Splits documents into smaller chunks"""
-        document_texts = [doc.page_content for doc in documents]
-        
-        splitter = CharacterTextSplitter.from_tiktoken_encoder(
-            chunk_size=CHUNK_SIZE, 
-            chunk_overlap=CHUNK_OVERLAP
+    def _create_document_chunks(self, documents, current_file_key):
+        """Splits documents into smaller chunks and adds metadata"""
+        # Ensure all are Document objects
+        documents = [
+            doc if isinstance(doc, Document) else Document(page_content=doc, metadata={})
+            for doc in documents
+        ]
+
+        # Extract text for splitting
+        texts = [doc.page_content for doc in documents]
+        # Initialize splitter
+        splitter = CharacterTextSplitter(
+            chunk_size=500,   # characters
+            chunk_overlap=50,
+            separator=""  # split strictly by characters
         )
-        doc_splits = splitter.create_documents(document_texts)
-        
-        # Add metadata
-        for i, split in enumerate(doc_splits):
-            original_doc_index = min(i, len(documents) - 1)
-            split.metadata.update(documents[original_doc_index].metadata)
-            split.metadata.update({
-                "chunk_id": i,
-                "total_chunks": len(doc_splits),
-                "chunk_size": len(split.page_content)
-            })
-        
+
+        # Split each document separately and keep metadata
+        doc_splits = []
+        for idx, text in enumerate(texts):
+            text = text.replace("\n", " ").replace("\u200b", "")  # remove zero-width spaces
+            text = " ".join(text.split())  # collapse multiple spaces
+
+            chunks = splitter.split_text(text)  # returns list of strings
+            for i, chunk in enumerate(chunks):
+                metadata = documents[idx].metadata.copy()
+                metadata.update({
+                    "chunk_id": i,
+                    "total_chunks": len(chunks),
+                    "chunk_size": len(chunk),
+                    "file_key": current_file_key
+                })
+                doc_splits.append(Document(page_content=chunk, metadata=metadata))
+
         return doc_splits
-    
-    def _create_vector_database(self, doc_splits):
+
+
+
+    def _create_vector_database(self, doc_splits, current_file_key):
+        """Creates a ChromaDB vector database from document chunks, avoids duplicates"""
         """Creates a ChromaDB vector database from document chunks"""
-        return Chroma.from_documents(
-            documents=doc_splits, 
-            collection_name=CHROMA_COLLECTION_NAME, 
-            embedding=self.embedding_function,
+        chroma_db = Chroma(
+            collection_name=CHROMA_COLLECTION_NAME,
+            embedding_function=self.embedding_function,
             persist_directory=CHROMA_PERSIST_DIR
         )
+
+        # Check for duplicates based on file_key
+        existing_docs = chroma_db.get(include=["metadatas"])
+        existing_keys = [meta.get("file_key") for meta in existing_docs["metadatas"]]
+
+        if current_file_key in existing_keys:
+            st.info("This file is already in the database. Skipping embedding creation.")
+            return chroma_db
+        else:
+            return Chroma.from_documents(
+                documents=doc_splits, 
+                collection_name=CHROMA_COLLECTION_NAME, 
+                embedding=self.embedding_function,
+                persist_directory=CHROMA_PERSIST_DIR
+            )
