@@ -8,21 +8,21 @@ import os
 from typing import List
 from pathlib import Path
 import logging
-from mistralai import Mistral
+
 from langchain_core.documents import Document
 from multimodal_loader import MultiFormatDocumentLoader
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-ocr_client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
+
 
 class StreamlitMultiFormatDocumentLoader:
     """Multi-format document loader with Streamlit integration"""
     
     def __init__(self):
         """Initialize with the base multi-format loader"""
-        self.base_loader = MultiFormatDocumentLoader(ocr_client)
+        self.base_loader = MultiFormatDocumentLoader()
     def load_document(self, file_path: str) -> List[Document]:
         """Load a document from file path using the multi-format loader"""
         return self.base_loader.load_document(file_path)

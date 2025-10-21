@@ -36,6 +36,7 @@ class DocumentProcessor:
         # Check if file already processed
         current_file_key = get_file_key(user_file)
         if st.session_state.get('processed_file') == current_file_key:
+            st.info(f"💡 The file '{user_file.name}' is already uploaded.")
             return st.session_state.get('retriever')
         
         try:

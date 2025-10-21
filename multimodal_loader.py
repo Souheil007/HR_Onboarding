@@ -6,15 +6,15 @@ Handles loading PDFs and images only, with OCR for images using Mistral OCR
 from pathlib import Path
 from typing import List, Dict, Any, Union
 import logging
-
+from mistralai import Mistral
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 import sys
-
+import os
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+ocr_client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "tiff", "bmp"}
 
@@ -22,7 +22,7 @@ SUPPORTED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "tiff", "bmp"}
 class MultiFormatDocumentLoader:
     """Handles loading PDFs and image files (with OCR for images)"""
     
-    def __init__(self, ocr_client=None):
+    def __init__(self):
         self.loaders = {
             "pdf": PyPDFLoader,
         }
