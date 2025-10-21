@@ -141,6 +141,11 @@ def render_question_section(user_file=None):
     # Show chat history first
     render_chat_history()
     
+    # Show evaluation section (if available)
+    if 'latest_evaluation' in st.session_state and st.session_state.latest_evaluation:
+        from app import render_evaluation_section  # avoid circular import if needed
+        render_evaluation_section(st.session_state.latest_evaluation)
+    
     # Question input at the bottom
     question = st.text_input(
         "Your question:",
