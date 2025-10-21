@@ -4,7 +4,8 @@ Utility functions for the Advanced RAG application
 import shutil
 import os
 import streamlit as st
-from config import CHROMA_PERSIST_DIR
+from langchain_chroma import Chroma
+from config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
 
 
 def clear_chroma_db():
@@ -30,7 +31,7 @@ def get_file_key(uploaded_file):
     """Generate unique key for uploaded file"""
     if uploaded_file is None:
         return None
-    return f"{uploaded_file.name}_{uploaded_file.size}"
+    return f"{uploaded_file.name}_{uploaded_file.size}_hello"
 
 
 def format_file_size(size_bytes):
@@ -43,3 +44,35 @@ def format_file_size(size_bytes):
         return f"{size_kb:.1f} KB"
     else:
         return f"{size_bytes} bytes"
+
+
+def list_stored_files():
+    """
+    Reads all unique file names from ChromaDB metadata.
+    Returns a list of file names that already have embeddings.
+    """
+    try:
+        db = Chroma(
+            collection_name=CHROMA_COLLECTION_NAME,
+            persist_directory=CHROMA_PERSIST_DIR
+        )
+
+        # Retrieve metadata from all documents
+        collection = db._collection.get(include=["metadatas"])
+        if not collection or not collection.get("metadatas"):
+            return []
+
+        # Extract file names from metadata
+        metadatas = collection["metadatas"]
+        file_names = set()
+        for md in metadatas:
+            if isinstance(md, dict) and "file_name" in md:
+                file_names.add(md["file_name"])
+
+        return sorted(list(file_names))
+
+    except Exception as e:
+        print(f"Error reading ChromaDB: {e}")
+        return []
+
+
