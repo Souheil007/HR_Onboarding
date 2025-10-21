@@ -1,12 +1,12 @@
 """
-UI components for the Advanced RAG application
+UI components for the Advanced RAG application with Chat History
 """
 import streamlit as st
 from config import (
     PAGE_TITLE, PAGE_ICON, LAYOUT, SIDEBAR_STATE, 
     FILE_CATEGORIES, UPLOAD_PLACEHOLDER_TITLE, UPLOAD_PLACEHOLDER_TEXT
 )
-from utils import format_file_size , list_stored_files
+from utils import format_file_size, list_stored_files
 
 def setup_page_config():
     """Sets up Streamlit page settings"""
@@ -108,15 +108,55 @@ def render_upload_placeholder():
     </div>
     """, unsafe_allow_html=True)
 
+
+def render_chat_history():
+    """Renders the chat history"""
+    if 'chat_history' not in st.session_state or not st.session_state.chat_history:
+        return
+    
+    st.markdown("### 💬 Chat History")
+    
+    # Display each Q&A pair
+    for i, chat in enumerate(st.session_state.chat_history):
+        with st.container():
+            # User question
+            st.markdown(f"""
+            <div style="background: #e3f2fd; padding: 1rem; border-radius: 10px; margin: 0.5rem 0;">
+                <strong>🙋 You:</strong> {chat['question']}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # AI answer
+            st.markdown(f"""
+            <div style="background: #f1f8e9; padding: 1rem; border-radius: 10px; margin: 0.5rem 0 1.5rem 0;">
+                <strong>🤖 Assistant:</strong> {chat['answer']}
+            </div>
+            """, unsafe_allow_html=True)
+
+
 def render_question_section(user_file=None):
     """Renders the question section with current document info"""
-    question = st.text_input("Ask a question about the document:")
-    ask_button = st.button("Ask")
+    st.markdown("### ❓ Ask a Question")
+    
+    # Show chat history first
+    render_chat_history()
+    
+    # Question input at the bottom
+    question = st.text_input(
+        "Your question:",
+        key="question_input",
+        placeholder="Type your question here..."
+    )
+    
+    col1, col2 = st.columns([6, 1])
+    with col1:
+        ask_button = st.button("Ask", use_container_width=True, type="primary")
+    with col2:
+        clear_button = st.button("🗑️ Clear", use_container_width=True)
+    
+    # Handle clear button
+    if clear_button:
+        st.session_state.chat_history = []
+        st.rerun()
 
     return question, ask_button
-
-def render_answer_section(result):
-    """Shows the answer section"""
-    st.markdown("### 📝 Answer")
-    st.success(result['solution'])
-    st.markdown("---")
