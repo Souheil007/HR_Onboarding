@@ -124,12 +124,12 @@ def handle_question_processing(question):
                             row.append("N/A")
                         
                         if hasattr(eval, 'coverage_assessment') and eval.coverage_assessment:
-                            row.append(eval.coverage_assessment[:50] + "..." if len(eval.coverage_assessment) > 50 else eval.coverage_assessment)
+                            row.append(eval.coverage_assessment[:] )
                         else:
                             row.append("N/A")
                         
                         if hasattr(eval, 'missing_information') and eval.missing_information:
-                            row.append(eval.missing_information[:50] + "..." if len(eval.missing_information) > 50 else eval.missing_information)
+                            row.append(eval.missing_information[:])
                         else:
                             row.append("N/A")
                         
