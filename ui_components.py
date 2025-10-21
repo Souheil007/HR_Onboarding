@@ -108,25 +108,11 @@ def render_upload_placeholder():
     </div>
     """, unsafe_allow_html=True)
 
-
-def render_question_section(user_files):
+def render_question_section(user_file=None):
     """Renders the question section with current document info"""
-    
-    if not user_files:
-        return "", None  # nothing uploaded
-
-    # If multiple files uploaded, take the first one for display
-    if isinstance(user_files, list):
-        first_file = user_files[0]
-    else:
-        first_file = user_files
-
-    file_display = f"📄 **Current Document:** {first_file.name}"
-    st.markdown(file_display)
-
     question = st.text_input("Ask a question about the document:")
     ask_button = st.button("Ask")
-    
+
     return question, ask_button
 
 def render_answer_section(result):

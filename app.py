@@ -18,19 +18,21 @@ LangGraph, including state management, conditional routing, and error handling.
 Good for understanding how LangGraph works with RAG systems.
 """
 import streamlit as st
-
+import pandas as pd
 # Local imports
 from config import QUESTION_PLACEHOLDER
 from utils import clear_chroma_db, initialize_session_state
 from ui_components import (
     setup_page_config, render_header, render_uploaded_files, 
     render_upload_section, render_upload_placeholder,
-    render_question_section, render_answer_section
+    render_question_section, render_answer_section,list_stored_files
 )
 from document_loader import MultiModalDocumentLoader
 from document_processor import DocumentProcessor
 from rag_workflow import RAGWorkflow
-
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
 # Initialize components
 document_loader = MultiModalDocumentLoader()
 document_processor = DocumentProcessor(document_loader)
@@ -54,17 +56,6 @@ def handle_question_processing(question):
         if result:
             st.markdown("---")
             st.markdown("### 📊 System Information")
-            
-            # Search Method Status
-            search_method = result.get('search_method', 'Unknown')
-            online_search = result.get('online_search', False)
-            
-            if search_method == 'online' or online_search:
-                st.info("🌐 Online Search Used")
-            elif search_method == 'documents':
-                st.success("📄 Document Search Used")
-            else:
-                st.warning("❓ Search method not specified")
             
             # Create summary table
             summary_data = []
@@ -103,7 +94,7 @@ def handle_question_processing(question):
             
             # Display summary table
             if summary_data:
-                import pandas as pd
+                
                 df = pd.DataFrame(summary_data, columns=["Metric", "Value"])
                 st.table(df)
             
@@ -155,19 +146,59 @@ def handle_question_processing(question):
 
 def handle_user_interaction(user_file):
     """Handle user interactions for Q&A"""
-    if user_file is None:
+    # Always show the question section
+    # If a retriever exists in session, use it; otherwise, try building from stored files
+    retriever_available = "retriever" in st.session_state
+
+    if not retriever_available:
+        # Check if there are stored files in ChromaDB
+        stored_files = list_stored_files()
+        if stored_files:
+            
+
+            embedding_function = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            chroma_db = Chroma(
+                collection_name=CHROMA_COLLECTION_NAME,
+                embedding_function=embedding_function,
+                persist_directory=CHROMA_PERSIST_DIR
+            )
+            st.session_state.retriever = chroma_db.as_retriever()
+            retriever_available = True
+
+    # If no file uploaded AND no retriever available, show placeholder
+    if not user_file and not retriever_available:
         render_upload_placeholder()
-        return
-    
-    # Render question section
+
+    # Render question input and button
     question, ask_button = render_question_section(user_file)
-    
+
     # Process question if submitted
     if ask_button and question.strip():
         handle_question_processing(question)
     elif ask_button and not question.strip():
         st.warning("Please enter a question before clicking Ask.")
 
+def init_retriever_from_chroma():
+    """Initialize retriever from ChromaDB if not already in session_state"""
+    if "retriever" not in st.session_state or st.session_state.retriever is None:
+        # Initialize embeddings
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        chroma_db = Chroma(
+            collection_name=CHROMA_COLLECTION_NAME,
+            embedding_function=embeddings,
+            persist_directory=CHROMA_PERSIST_DIR
+        )
+        # Check if ChromaDB has any documents
+        if chroma_db._collection.count() > 0:
+            st.session_state.retriever = chroma_db.as_retriever()
+            print(f"Retriever initialized from existing ChromaDB: {chroma_db._collection.count()} Chunks found")
+        else:
+            st.session_state.retriever = None
+            print("No documents in ChromaDB, retriever not created")
 
 def main():
     """Main application function"""
@@ -185,8 +216,12 @@ def main():
     render_header()
     
     
+    
     # Handle file upload
     user_file = render_upload_section(document_loader)
+    
+    # Initialize retriever if no new upload
+    init_retriever_from_chroma()
     
     # Show list of previously uploaded files in sidebar
     render_uploaded_files()
