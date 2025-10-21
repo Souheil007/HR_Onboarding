@@ -6,7 +6,7 @@ from config import (
     PAGE_TITLE, PAGE_ICON, LAYOUT, SIDEBAR_STATE, 
     FILE_CATEGORIES, UPLOAD_PLACEHOLDER_TITLE, UPLOAD_PLACEHOLDER_TEXT
 )
-from utils import format_file_size
+from utils import format_file_size , list_stored_files
 
 def setup_page_config():
     """Sets up Streamlit page settings"""
@@ -20,68 +20,79 @@ def setup_page_config():
 
 def render_header():
     """Shows the main header section"""
-    st.title(f"{PAGE_ICON} Advanced RAG System")
+    st.title(f"{PAGE_ICON} HR_Onboarding Assistant")
     st.subheader("Intelligent Document Search & Analysis")
     
-    # Feature highlights
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.info("🔍 **Smart Search**\n\nAdvanced retrieval with fallback to online sources")
-    
-    with col2:
-        st.info("📄 **Multi-Format**\n\nPDF, Word, Excel, Code files supported")
-    
-    with col3:
-        st.info("🤖 **LLM-Powered**\n\nLangGraph workflow with hallucination detection")
-    
-    st.divider()
-
 
 def render_sidebar(document_loader):
-    """Shows the sidebar with app info and file types"""
+    """Sidebar UI with expandable stored file list"""
     with st.sidebar:
         # App info
         st.markdown("""
-        <div style="background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <h4>🔍 Advanced RAG System</h4>
-            <p>Upload documents and ask intelligent questions using LLM-powered retrieval.</p>
+        <div style="
+            background: white;
+            padding: 0.8rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        ">
+            <h4 style="margin-bottom: 0.5rem;">🔍 Advanced RAG System</h4>
+            <p style="font-size: 0.9rem; margin: 0;">Upload company documents and ask intelligent questions using LLM-powered retrieval.</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown("### 📋 Supported File Types")
-        
-        # Organized file type display
-        for category, formats in FILE_CATEGORIES.items():
-            with st.expander(category, expanded=False):
-                for fmt in formats:
-                    st.markdown(f"• {fmt}")
+
+        # Expandable stored files section
+        stored_files = list_stored_files()
+        with st.expander(f"💾 Stored Files ({len(stored_files)})", expanded=False):
+            if stored_files:
+                st.markdown("""
+                <div style="
+                    max-height: 200px;
+                    overflow-y: auto;
+                    background: #f8f9fa;
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                    line-height: 1.4;
+                ">
+                """, unsafe_allow_html=True)
+
+                for f in stored_files:
+                    st.markdown(f"📄 {f}")
+
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    '<p style="font-size: 0.85rem; color: gray;">No files currently stored.</p>',
+                    unsafe_allow_html=True
+                )
 
 
 def render_upload_section(document_loader):
     """Shows the document upload section"""
-    st.markdown("## 📤 Document Upload")
-    
-    # Upload area with simple styling
-    st.info("📁 **Drag & Drop Your Document**\n\nSupported: PDF, Word, Excel, Text, Code files")
-    
-    # Show current supported extensions
-    with st.expander("ℹ️ View All Supported Formats", expanded=False):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write(f"**Supported extensions:** {document_loader.get_supported_extensions_display()}")
-        with col2:
-            st.write(f"**Total formats:** {len(document_loader.get_supported_extensions())}")
-    
-    # File uploader
-    user_file = st.file_uploader(
-        "Choose a file", 
-        type=document_loader.get_supported_extensions(),
-        help="Upload any supported document type.",
-        label_visibility="collapsed"
-    )
-    
-    return user_file
+    with st.sidebar:
+        st.markdown("## 📤 Document Upload")
+        
+        # Upload area with simple styling
+        st.info("📁 **Drag & Drop Your Document**\n\nSupported: PDF, png, jpg, jpeg, tiff, bmp")
+        
+        # Show current supported extensions
+        #with st.expander("ℹ️ View All Supported Formats", expanded=False):
+        #    col1, col2 = st.columns(2)
+        #    with col1:
+        #        st.write(f"**Supported extensions:** {document_loader.get_supported_extensions_display()}")
+        #    with col2:
+        #        st.write(f"**Total formats:** {len(document_loader.get_supported_extensions())}")
+        
+        # File uploader
+        user_file = st.file_uploader(
+            "Choose a file", 
+            type=document_loader.get_supported_extensions(),
+            help="Upload any supported document type.",
+            label_visibility="collapsed"
+        )
+        
+        return user_file
 
 
 def render_file_analysis(file_info):
