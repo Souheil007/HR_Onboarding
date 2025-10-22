@@ -74,6 +74,14 @@ class MultiFormatDocumentLoader:
         return all_md
     
     def load_document(self, file_path: Union[str, Path]) -> List[Document]:
+        """
+        Loads and processes a document from a local file path.
+
+        This function determines the file type, applies the appropriate loading or 
+        extraction method (PDF parsing or OCR for images), and returns the extracted 
+        document content as a list of `Document` objects with associated metadata.
+
+        """
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")

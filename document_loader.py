@@ -23,8 +23,9 @@ class StreamlitMultiFormatDocumentLoader:
     def __init__(self):
         """Initialize with the base multi-format loader"""
         self.base_loader = MultiFormatDocumentLoader()
+        
     def load_document(self, file_path: str) -> List[Document]:
-        """Load a document from file path using the multi-format loader"""
+        """Load a document that is alraedy on disk (a local file path)"""
         return self.base_loader.load_document(file_path)
     
     def load_uploaded_file(self, uploaded_file) -> List[Document]:
