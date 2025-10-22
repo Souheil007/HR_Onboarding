@@ -199,7 +199,8 @@ def handle_user_interaction(user_file):
         stored_files = list_stored_files()
         if stored_files:
             embedding_function = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={"device": "cpu"} 
             )
             chroma_db = Chroma(
                 collection_name=CHROMA_COLLECTION_NAME,
@@ -215,22 +216,11 @@ def handle_user_interaction(user_file):
             if doc_chunks:
                 # BM25 retriever
                 bm25_retriever = BM25Retriever.from_documents(doc_chunks, k=5, preprocess_func=lambda text: text.split())
+                document_processor._bm25_retriever = bm25_retriever
+                document_processor._chroma_db = chroma_db
+            
 
-                # Hybrid retriever function
-                def hybrid_search(query: str, top_k: int = 5, weights=(0.7, 0.3)):
-                    semantic_retriever = chroma_db.as_retriever(search_kwargs={"k": top_k})
-                    semantic_docs = semantic_retriever.invoke(query)
-
-                    bm25_docs_list = bm25_retriever.invoke(query)[:top_k]
-                    combined = {}
-                    for doc in semantic_docs:
-                        combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
-                    for doc in bm25_docs_list:
-                        combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
-                    sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-                    return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
-
-                st.session_state.retriever = hybrid_search
+                st.session_state.retriever = document_processor.hybrid_search
                 retriever_available = True
                 print(f"Hybrid retriever initialized with {len(doc_chunks)} chunks")
             else:
@@ -277,23 +267,9 @@ def init_retriever_from_chroma():
             bm25_retriever = BM25Retriever.from_documents(
                 doc_chunks, k=5, preprocess_func=lambda text: text.split()
             )
-
-            # Hybrid retriever function
-            def hybrid_search(query: str, top_k: int = 5, weights=(0.7, 0.3)):
-                semantic_retriever = chroma_db.as_retriever(search_kwargs={"k": top_k})
-                semantic_docs = semantic_retriever.invoke(query)
-                bm25_docs_list = bm25_retriever.invoke(query)[:top_k]
-
-                combined = {}
-                for doc in semantic_docs:
-                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
-                for doc in bm25_docs_list:
-                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
-
-                sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-                return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
-
-            st.session_state.retriever = hybrid_search
+            document_processor._bm25_retriever = bm25_retriever
+            document_processor._chroma_db = chroma_db
+            st.session_state.retriever = document_processor.hybrid_search
             print(f"Hybrid retriever initialized from ChromaDB with {len(doc_chunks)} chunks")
         else:
             st.session_state.retriever = None
