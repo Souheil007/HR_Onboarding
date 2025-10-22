@@ -27,6 +27,9 @@ from rag_workflow import RAGWorkflow
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
+from langchain_community.retrievers import BM25Retriever
+from nltk.tokenize import word_tokenize
+from langchain_core.documents import Document
 
 # Initialize components
 document_loader = MultiModalDocumentLoader()
@@ -187,11 +190,8 @@ def render_evaluation_section(result):
             st.dataframe(reasoning_df, use_container_width=True)
 
 
-
 def handle_user_interaction(user_file):
     """Handle user interactions for Q&A"""
-    # Always show the question section
-    # If a retriever exists in session, use it; otherwise, try building from stored files
     retriever_available = "retriever" in st.session_state
 
     if not retriever_available:
@@ -206,41 +206,95 @@ def handle_user_interaction(user_file):
                 embedding_function=embedding_function,
                 persist_directory=CHROMA_PERSIST_DIR
             )
-            st.session_state.retriever = chroma_db.as_retriever()
-            retriever_available = True
+
+            # Get chunks from Chroma for BM25
+            chroma_docs_raw = chroma_db.get(include=['metadatas','documents'])['documents']
+            doc_chunks = [Document(page_content=d['page_content'], metadata=d['metadata']) 
+                          for d in chroma_docs_raw]
+
+            if doc_chunks:
+                # BM25 retriever
+                bm25_retriever = BM25Retriever.from_documents(doc_chunks, k=5, preprocess_func=lambda text: text.split())
+
+                # Hybrid retriever function
+                def hybrid_search(query: str, top_k: int = 5, weights=(0.7, 0.3)):
+                    semantic_retriever = chroma_db.as_retriever(search_kwargs={"k": top_k})
+                    semantic_docs = semantic_retriever.invoke(query)
+
+                    bm25_docs_list = bm25_retriever.invoke(query)[:top_k]
+                    combined = {}
+                    for doc in semantic_docs:
+                        combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
+                    for doc in bm25_docs_list:
+                        combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
+                    sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+                    return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
+
+                st.session_state.retriever = hybrid_search
+                retriever_available = True
+                print(f"Hybrid retriever initialized with {len(doc_chunks)} chunks")
+            else:
+                st.session_state.retriever = None
+                print("No documents in ChromaDB, retriever not created")
 
     # If no file uploaded AND no retriever available, show placeholder
     if not user_file and not retriever_available:
         render_upload_placeholder()
 
-    # Render question input and button (now with chat history)
+    # Render question input and button (with chat history)
     question, ask_button = render_question_section(user_file)
 
     # Process question if submitted
     if ask_button and question.strip():
         handle_question_processing(question)
-        # Clear the input by rerunning
         st.rerun()
     elif ask_button and not question.strip():
         st.warning("Please enter a question before clicking Ask.")
 
-
 def init_retriever_from_chroma():
     """Initialize retriever from ChromaDB if not already in session_state"""
     if "retriever" not in st.session_state or st.session_state.retriever is None:
-        # Initialize embeddings
-        embeddings = HuggingFaceEmbeddings(
+        embedding_function = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
         chroma_db = Chroma(
             collection_name=CHROMA_COLLECTION_NAME,
-            embedding_function=embeddings,
+            embedding_function=embedding_function,
             persist_directory=CHROMA_PERSIST_DIR
         )
-        # Check if ChromaDB has any documents
-        if chroma_db._collection.count() > 0:
-            st.session_state.retriever = chroma_db.as_retriever()
-            print(f"Retriever initialized from existing ChromaDB: {chroma_db._collection.count()} Chunks found")
+
+        # Fetch docs and metadata
+        data = chroma_db.get(include=['documents','metadatas'])
+        documents = data['documents']      # list of strings
+        metadatas = data['metadatas']      # list of dicts
+
+        # Convert to Document objects
+        doc_chunks = [Document(page_content=text, metadata=meta) 
+                      for text, meta in zip(documents, metadatas)]
+
+        if doc_chunks:
+            # BM25 retriever
+            bm25_retriever = BM25Retriever.from_documents(
+                doc_chunks, k=5, preprocess_func=lambda text: text.split()
+            )
+
+            # Hybrid retriever function
+            def hybrid_search(query: str, top_k: int = 5, weights=(0.7, 0.3)):
+                semantic_retriever = chroma_db.as_retriever(search_kwargs={"k": top_k})
+                semantic_docs = semantic_retriever.invoke(query)
+                bm25_docs_list = bm25_retriever.invoke(query)[:top_k]
+
+                combined = {}
+                for doc in semantic_docs:
+                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
+                for doc in bm25_docs_list:
+                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
+
+                sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+                return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
+
+            st.session_state.retriever = hybrid_search
+            print(f"Hybrid retriever initialized from ChromaDB with {len(doc_chunks)} chunks")
         else:
             st.session_state.retriever = None
             print("No documents in ChromaDB, retriever not created")

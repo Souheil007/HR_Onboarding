@@ -78,7 +78,7 @@ class RAGWorkflow:
             print("No retriever available, returning empty document list")
             return {"documents": [], "question": question}
         try:
-            documents = current_retriever.invoke(question)
+            documents = current_retriever(question)
             print(f"Retrieved {len(documents)} documents")
             return {"documents": documents, "question": question}
         except Exception as e:

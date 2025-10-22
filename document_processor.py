@@ -3,12 +3,14 @@ Document processing module for the Advanced RAG application
 """
 import streamlit as st
 import time
+
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
-
-
+from langchain_community.retrievers import BM25Retriever
+from nltk.tokenize import word_tokenize
+from langchain_core.documents import Document
 from config import CHUNK_SIZE, CHUNK_OVERLAP, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
 from utils import get_file_key
 from ui_components import render_file_analysis
@@ -62,62 +64,70 @@ class DocumentProcessor:
         return self._execute_processing_pipeline(user_file, file_info, current_file_key)
     
     def _execute_processing_pipeline(self, user_file, file_info, current_file_key):
-        """Runs the complete processing pipeline"""
+        """Runs the complete processing pipeline with hybrid retriever"""
         st.markdown("### 🔄 Processing Status")
-        
-        # Initialize progress tracking
+
         progress_bar = st.progress(0)
         status_text = st.empty()
-        
+
         try:
             # Step 1: Load document
             status_text.text("🔄 Loading document...")
             progress_bar.progress(25)
             documents = self.document_loader.load_uploaded_file(user_file)
-            
+
             # Step 2: Extract content
             status_text.text("🔍 Extracting content...")
             progress_bar.progress(50)
             st.success(f"✅ Successfully extracted content from {file_info['filename']}")
-            
+
             # Step 3: Split into chunks
             progress_bar.progress(75)
             status_text.text("✂️ Splitting into chunks...")
             doc_splits = self._create_document_chunks(documents, current_file_key)
-    
-            # Step 4: Create embeddings
+
+            # Step 4: Create Chroma vector DB
             progress_bar.progress(90)
             status_text.text("🧠 Creating embeddings...")
             chroma_db = self._create_vector_database(doc_splits, current_file_key)
 
-            
-            # Step 5: Complete
+            # Step 5: Create BM25 retriever
+            bm25_retriever = BM25Retriever.from_documents(
+                doc_splits, k=5, preprocess_func=lambda text: text.split()
+            )
+
+            # Step 6: Create hybrid search function
+            def hybrid_search(query: str, top_k: int = 5, weights=(0.7, 0.3)):
+                # Chroma semantic search
+                semantic_retriever = chroma_db.as_retriever(search_kwargs={"k": top_k})
+                semantic_docs = semantic_retriever.invoke(query)
+
+                # BM25 keyword search
+                bm25_docs_list = bm25_retriever.invoke(query)[:top_k]
+
+                # Combine results with weights
+                combined = {}
+                for doc in semantic_docs:
+                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
+                for doc in bm25_docs_list:
+                    combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
+
+                sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+                return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
+
+            # Step 7: Store retriever in session
+            st.session_state.processed_file = current_file_key
+            st.session_state.retriever = hybrid_search
+
+            # Step 8: Complete
             progress_bar.progress(100)
             status_text.text("✅ Processing complete!")
-            
-            # Clean up UI
             time.sleep(1)
             progress_bar.empty()
             status_text.empty()
-            
-            # Store in session state
-            retriever = chroma_db.as_retriever()
-            st.session_state.processed_file = current_file_key
-            st.session_state.retriever = retriever
-            
-            # Debug: Confirm retriever creation and test it
-            print(f"Retriever created successfully: {retriever is not None}")
-            print(f"Session state updated with file key: {current_file_key}")
-            
-            # Test the retriever with a simple query
-            try:
-                test_docs = retriever.invoke("test")
-                print(f"Retriever test successful - found {len(test_docs)} documents")
-            except Exception as test_error:
-                print(f"Retriever test failed: {test_error}")
-            
-            return retriever
-            
+
+            return hybrid_search
+
         except Exception as e:
             progress_bar.empty()
             status_text.empty()
