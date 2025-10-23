@@ -74,12 +74,10 @@ class MultiFormatDocumentLoader:
     
     def load_document(self, file_path: Union[str, Path]) -> List[Document]:
         """
-        Loads and processes a document from a local file path.
+        Loads and processes a document from a local file path using OCR.
 
-        This function determines the file type, applies the appropriate loading or 
-        extraction method (PDF parsing or OCR for images), and returns the extracted 
-        document content as a list of `Document` objects with associated metadata.
-
+        This function uses Mistral OCR for all supported file types (PDFs and images),
+        extracting text and returning it as Document objects with associated metadata.
         """
         file_path = Path(file_path)
         if not file_path.exists():
@@ -89,25 +87,24 @@ class MultiFormatDocumentLoader:
         if not self.is_supported_format(file_path):
             raise ValueError(f"Unsupported file type: {extension}")
 
-        logger.info(f"Loading document: {file_path} (format: {extension})")
+        logger.info(f"Loading document with OCR: {file_path} (format: {extension})")
         documents: List[Document] = []
 
-        if extension == "pdf":
-            loader = PyPDFLoader(str(file_path))
-            documents = loader.load()
-            # Print the number of chunks/pages loaded
-            print(f"Loaded {len(documents)} document chunks")
-        else:
-            # Image → perform OCR
-            ocr_result = self.perform_ocr(str(file_path))
-            md_text = self.get_markdown_from_ocr(ocr_result)
-            # Combine all markdown text into a single string
-            combined_md = "\n\n".join([md for _, md in md_text])
-    
-            print(f"OCR extracted text length: {len(combined_md)} characters and this is the text: {combined_md[:]}")
-            documents.append(Document(page_content=combined_md))
+        # Perform OCR on all file types (PDFs and images)
+        ocr_result = self.perform_ocr(str(file_path))
+        md_text = self.get_markdown_from_ocr(ocr_result)
+        print(md_text)
+        # Combine all markdown text into a single string
+        combined_md = "\n\n---\n\n".join([md for _, md in md_text])
 
-        # Add metadata
+        logger.info(f"OCR extracted text length: {len(combined_md)} characters")
+        
+        if combined_md.strip():
+            documents.append(Document(page_content=combined_md))
+        else:
+            logger.warning(f"No text extracted from {file_path}")
+
+        # Add metadata to all documents
         for doc in documents:
             doc.metadata.update({
                 "source": str(file_path),

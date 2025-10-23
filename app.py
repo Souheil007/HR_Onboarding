@@ -152,7 +152,8 @@ def init_retriever_from_chroma():
     """Initialize retriever from ChromaDB if not already in session_state"""
     if "retriever" not in st.session_state or st.session_state.retriever is None:
         embedding_function = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"}
         )
         chroma_db = Chroma(
             collection_name=CHROMA_COLLECTION_NAME,
@@ -167,7 +168,9 @@ def init_retriever_from_chroma():
 
         # Convert to Document objects
         doc_chunks = [Document(page_content=text, metadata=meta) 
-                      for text, meta in zip(documents, metadatas)]
+                      for text, meta in zip(documents, metadatas)
+                      if text.strip()
+                      ]
 
         if doc_chunks:
             # BM25 retriever
