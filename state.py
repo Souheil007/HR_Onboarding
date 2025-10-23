@@ -31,7 +31,6 @@ class GraphState(TypedDict):
     
     question: str
     solution: str
-    online_search: bool
     documents: List[str]
     topic : Optional[str]   # Detected topic of the question
     document_evaluations: Optional[List[Dict[str, Any]]]  # Store document evaluation results
