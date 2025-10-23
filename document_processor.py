@@ -14,7 +14,7 @@ from langchain_core.documents import Document
 from config import CHUNK_SIZE, CHUNK_OVERLAP, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
 from utils import get_file_key
 from ui_components import render_file_analysis
-import functools
+from sentence_transformers import CrossEncoder
 
 embedding_function = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
@@ -30,7 +30,7 @@ class DocumentProcessor:
         self.embedding_function = embedding_function
         self._chroma_db = None
         self._bm25_retriever = None
-        
+        self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     def process_file(self, user_file):
         """
         Processes an uploaded file and creates embeddings
@@ -172,7 +172,7 @@ class DocumentProcessor:
                 persist_directory=CHROMA_PERSIST_DIR
             )
             
-    def hybrid_search(self, query: str, top_k: int = 5, weights=(0.7, 0.3)):
+    def hybrid_search(self, query: str, top_k: int = 10,top_reranked = 5 ,weights=(0.7, 0.3),rerank: bool = True):
         """
         Self-contained hybrid search combining Chroma semantic search and BM25 keyword search.
         No need to pass retrievers manually.
@@ -180,20 +180,37 @@ class DocumentProcessor:
         if self._chroma_db is None or self._bm25_retriever is None:
             raise ValueError("No retrievers available. Process a file first.")
 
-        # Semantic search
+        # --- Step 1: Retrieve from both retrievers ---
         semantic_retriever = self._chroma_db.as_retriever(search_kwargs={"k": top_k})
         semantic_docs = semantic_retriever.invoke(query)
-
-        # BM25 search
         bm25_docs_list = self._bm25_retriever.invoke(query)[:top_k]
 
-        # Combine with weights
+        # --- Step 2: Combine results using weights ---
         combined = {}
         for doc in semantic_docs:
-            combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[0]
-        for doc in bm25_docs_list:
-            combined[doc.page_content] = combined.get(doc.page_content, 0) + weights[1]
+            key = (doc.page_content, tuple(sorted(doc.metadata.items())))
+            combined[key] = {
+                "score": combined.get(key, {"score": 0})["score"] + weights[0],
+                "doc": doc
+            }
 
-        # Sort and return top_k
-        sorted_docs = sorted(combined.items(), key=lambda x: x[1], reverse=True)
-        return [Document(page_content=text) for text, _ in sorted_docs[:top_k]]
+        for doc in bm25_docs_list:
+            key = (doc.page_content, tuple(sorted(doc.metadata.items())))
+            combined[key] = {
+                "score": combined.get(key, {"score": 0})["score"] + weights[1],
+                "doc": doc
+            }
+
+        # --- Step 3: Sort combined docs ---
+        sorted_combined = sorted(combined.values(), key=lambda x: x["score"], reverse=True)
+        top_candidates = [entry["doc"] for entry in sorted_combined[:top_reranked]]
+
+        # --- Step 4: Optional reranking ---
+        if rerank and top_candidates and hasattr(self, "reranker"):
+            pairs = [(query, doc.page_content) for doc in top_candidates]
+            scores = self.reranker.predict(pairs)
+            reranked = sorted(zip(top_candidates, scores), key=lambda x: x[1], reverse=True)
+            return [doc for doc, _ in reranked]
+
+        # --- Step 5: Return hybrid-only results ---
+        return top_candidates

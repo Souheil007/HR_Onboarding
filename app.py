@@ -30,7 +30,7 @@ from config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
 from langchain_community.retrievers import BM25Retriever
 from nltk.tokenize import word_tokenize
 from langchain_core.documents import Document
-
+from sentence_transformers import CrossEncoder
 # Initialize components
 document_loader = MultiModalDocumentLoader()
 document_processor = DocumentProcessor(document_loader)
@@ -218,6 +218,7 @@ def handle_user_interaction(user_file):
                 bm25_retriever = BM25Retriever.from_documents(doc_chunks, k=5, preprocess_func=lambda text: text.split())
                 document_processor._bm25_retriever = bm25_retriever
                 document_processor._chroma_db = chroma_db
+                document_processor.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
             
 
                 st.session_state.retriever = document_processor.hybrid_search
@@ -269,6 +270,7 @@ def init_retriever_from_chroma():
             )
             document_processor._bm25_retriever = bm25_retriever
             document_processor._chroma_db = chroma_db
+            document_processor.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
             st.session_state.retriever = document_processor.hybrid_search
             print(f"Hybrid retriever initialized from ChromaDB with {len(doc_chunks)} chunks")
         else:
