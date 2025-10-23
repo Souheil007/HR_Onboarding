@@ -122,8 +122,8 @@ class DocumentProcessor:
         texts = [doc.page_content for doc in documents]
         # Initialize splitter
         splitter = CharacterTextSplitter(
-            chunk_size=500,   # characters
-            chunk_overlap=50,
+            chunk_size=CHUNK_SIZE,   # characters
+            chunk_overlap=CHUNK_OVERLAP,
             separator=""  # split strictly by characters
         )
 

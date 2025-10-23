@@ -16,8 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ocr_client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "tiff", "bmp"}
-
+from config import SUPPORTED_EXTENSIONS
 
 class MultiFormatDocumentLoader:
     """Handles loading PDFs and image files (with OCR for images)"""
