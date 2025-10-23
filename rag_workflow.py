@@ -1,13 +1,13 @@
 import streamlit as st
 from langchain_core.documents import Document
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, StateGraph # Responsible for state management and workflow orchestration and Logging to langsmith
 
 from state import GraphState
 from chains.document_relevance import document_relevance
 from chains.evaluate import evaluate_docs
 from chains.generate_answer import generate_chain
 from chains.question_relevance import question_relevance
-
+from topic_router import TopicRouter 
 
 class RAGWorkflow:
     """Manages the RAG workflow using LangGraph without online search"""
@@ -16,6 +16,7 @@ class RAGWorkflow:
         self.graph = None
         self.retriever = None
         self._current_session_retriever_key = None
+        self.topic_router = TopicRouter()
     
     def get_graph(self):
         """Get or create the graph instance (cached for performance)"""
@@ -58,21 +59,37 @@ class RAGWorkflow:
     def _create_graph(self):
         """Create and configure the state graph for handling queries"""
         workflow = StateGraph(GraphState)
+        # Add nodes
+        workflow.add_node("Detect Topic", self._detect_topic)
         workflow.add_node("Retrieve Documents", self._retrieve)
-        workflow.add_node("Grade Documents", self._evaluate)
+        #workflow.add_node("Grade Documents", self._evaluate)
         workflow.add_node("Generate Answer", self._generate_answer)
         
-        workflow.set_entry_point("Retrieve Documents")
-        workflow.add_edge("Retrieve Documents", "Grade Documents")
-        workflow.add_edge("Grade Documents", "Generate Answer")
+        # Set entry point
+        workflow.set_entry_point("Detect Topic")
+        
+        # Define edges
+        workflow.add_edge("Detect Topic", "Retrieve Documents")
+        workflow.add_edge("Retrieve Documents", "Generate Answer")
+        #workflow.add_edge("Retrieve Documents", "Grade Documents")
+        #workflow.add_edge("Grade Documents", "")
         workflow.add_edge("Generate Answer", END)
         
         return workflow.compile()
     
+    def _detect_topic(self, state: GraphState):
+        """Detect the topic of the question and store it in state"""
+        question = state["question"]
+        topic = self.topic_router.detect_topic(question)
+        state["topic"] = topic
+        print(f"GRAPH STATE: Detected topic -> {topic}")
+        return {"question": question, "topic": topic}
+
+    
     def _retrieve(self, state: GraphState):
         """Retrieve documents relevant to the user's question"""
         print("GRAPH STATE: Retrieve Documents")
-        question = state["question"]
+        question = state["question"]    
         current_retriever = self.get_current_retriever()
         if current_retriever is None:
             print("No retriever available, returning empty document list")
@@ -111,9 +128,9 @@ class RAGWorkflow:
         print(f"Answer generated: {len(solution)} characters")
         
         # Check relevance
-        doc_relevance_score = document_relevance.invoke({"documents": documents, "solution": solution})
-        question_relevance_score = question_relevance.invoke({"question": question, "solution": solution})
-        state["document_relevance_score"] = doc_relevance_score
-        state["question_relevance_score"] = question_relevance_score
+        #doc_relevance_score = document_relevance.invoke({"documents": documents, "solution": solution})
+        #question_relevance_score = question_relevance.invoke({"question": question, "solution": solution})
+        #state["document_relevance_score"] = doc_relevance_score
+        #state["question_relevance_score"] = question_relevance_score
         
         return {"documents": documents, "question": question, "solution": solution}

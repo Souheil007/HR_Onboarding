@@ -4,7 +4,7 @@ UI components for the Advanced RAG application with Chat History
 import streamlit as st
 from config import (
     PAGE_TITLE, PAGE_ICON, LAYOUT, SIDEBAR_STATE, 
-    FILE_CATEGORIES, UPLOAD_PLACEHOLDER_TITLE, UPLOAD_PLACEHOLDER_TEXT
+     UPLOAD_PLACEHOLDER_TITLE, UPLOAD_PLACEHOLDER_TEXT
 )
 from utils import format_file_size, list_stored_files
 

@@ -24,6 +24,7 @@ from ui_components import (
 from document_loader import MultiModalDocumentLoader
 from document_processor import DocumentProcessor
 from rag_workflow import RAGWorkflow
+from topic_router import TopicRouter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
@@ -31,10 +32,12 @@ from langchain_community.retrievers import BM25Retriever
 from nltk.tokenize import word_tokenize
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
+
 # Initialize components
 document_loader = MultiModalDocumentLoader()
 document_processor = DocumentProcessor(document_loader)
 rag_workflow = RAGWorkflow()
+topic_router = TopicRouter()
 
 
 def format_chat_history_for_context():
@@ -58,6 +61,9 @@ def handle_question_processing(question):
     """Handle the Q&A processing workflow with conversation history"""
     # Debug info
     print(f"Processing question: {question}")
+    # Detect topic
+    topic = topic_router.detect_topic(question)
+    print(f"Detected topic: {topic}")
     
     # Format the question with chat history context
     chat_context = format_chat_history_for_context()
@@ -70,7 +76,7 @@ def handle_question_processing(question):
         contextualized_question = question
     
     with st.container():
-        with st.spinner('🧠 Analyzing your question and retrieving relevant information...'):
+        with st.spinner(f'🧠 Analyzing your question in topic "{topic}" and retrieving relevant information...'):
             # Process the question with context - workflow will handle retriever automatically
             result = rag_workflow.process_question(contextualized_question)
         
