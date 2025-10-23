@@ -5,7 +5,8 @@ class TopicRouter:
         # Small, fast zero-shot model for fallback
         self.classifier = pipeline(
             "zero-shot-classification",
-            model="valhalla/distilbart-mnli-12-1"
+            model="valhalla/distilbart-mnli-12-1",
+            device=-1 
         )
 
         # Your topics

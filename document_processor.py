@@ -4,7 +4,7 @@ Document processing module for the Advanced RAG application
 import streamlit as st
 import time
 
-from langchain_text_splitters import CharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
@@ -121,10 +121,10 @@ class DocumentProcessor:
         # Extract text for splitting
         texts = [doc.page_content for doc in documents]
         # Initialize splitter
-        splitter = CharacterTextSplitter(
-            chunk_size=CHUNK_SIZE,   # characters
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE,
             chunk_overlap=CHUNK_OVERLAP,
-            separator=""  # split strictly by characters
+            separators=["\n\n", "\n", ".", "!", "?", " ", ""]
         )
 
         # Split each document separately and keep metadata

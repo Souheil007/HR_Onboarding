@@ -143,7 +143,6 @@ def render_question_section(user_file=None):
     
     # Show evaluation section (if available)
     if 'latest_evaluation' in st.session_state and st.session_state.latest_evaluation:
-        from app import render_evaluation_section  # avoid circular import if needed
         render_evaluation_section(st.session_state.latest_evaluation)
     
     # Question input at the bottom
@@ -165,3 +164,101 @@ def render_question_section(user_file=None):
         st.rerun()
 
     return question, ask_button
+
+def render_evaluation_section(result):
+    """Render the evaluation metrics section only evaluation nodes are present (fully expandable)."""
+    if not result:
+        return
+
+    with st.expander("📊 Evaluation Results", expanded=False):
+
+        st.markdown("### 🧩 Summary Metrics")
+
+        # Create summary table
+        summary_data = []
+
+        # Document Evaluations Summary
+        if 'document_evaluations' in result and result['document_evaluations']:
+            evaluations = result['document_evaluations']
+            relevant_count = sum(1 for eval in evaluations if eval.score.lower() == 'yes')
+            total_count = len(evaluations)
+            summary_data.append(["📋 Document Relevance", f"{relevant_count}/{total_count} relevant"])
+
+            # Show average relevance score if available
+            if hasattr(evaluations[0], 'relevance_score'):
+                avg_score = sum(eval.relevance_score for eval in evaluations) / len(evaluations)
+                summary_data.append(["📊 Avg. Doc Relevance", f"{avg_score:.2f}"])
+
+        # Question-Answer Match
+        if 'question_relevance_score' in result:
+            q_relevance = result['question_relevance_score']
+            if hasattr(q_relevance, 'binary_score'):
+                match_text = "✅ Well Matched" if q_relevance.binary_score else "❌ Poor Match"
+                summary_data.append(["❓ Question Match", match_text])
+            if hasattr(q_relevance, 'relevance_score'):
+                summary_data.append(["📈 Question Score", f"{q_relevance.relevance_score:.2f}"])
+            if hasattr(q_relevance, 'completeness'):
+                summary_data.append(["📝 Completeness", q_relevance.completeness])
+
+        # Document Relevance Grading
+        if 'document_relevance_score' in result:
+            doc_relevance = result['document_relevance_score']
+            if hasattr(doc_relevance, 'binary_score'):
+                grounding_text = "✅ Well Grounded" if doc_relevance.binary_score else "❌ Not Grounded"
+                summary_data.append(["🎯 Answer Grounding", grounding_text])
+            if hasattr(doc_relevance, 'confidence'):
+                summary_data.append(["🔒 Confidence", f"{doc_relevance.confidence:.2f}"])
+
+        # Display summary table
+        if summary_data:
+            df = pd.DataFrame(summary_data, columns=["Metric", "Value"])
+            st.table(df)
+
+        # Divider before detailed results
+        st.markdown("---")
+        st.markdown("### 🔧 Detailed Evaluation Results")
+
+        # Document Evaluations Table
+        if 'document_evaluations' in result and result['document_evaluations']:
+            st.markdown("**📋 Document Evaluation Details:**")
+
+            eval_data = []
+            for i, eval in enumerate(result['document_evaluations']):
+                row = [f"Document {i+1}", eval.score]
+
+                if hasattr(eval, 'relevance_score'):
+                    row.append(f"{eval.relevance_score:.2f}")
+                else:
+                    row.append("N/A")
+
+                if hasattr(eval, 'coverage_assessment') and eval.coverage_assessment:
+                    row.append(eval.coverage_assessment[:])
+                else:
+                    row.append("N/A")
+
+                if hasattr(eval, 'missing_information') and eval.missing_information:
+                    row.append(eval.missing_information[:])
+                else:
+                    row.append("N/A")
+
+                eval_data.append(row)
+
+            if eval_data:
+                eval_df = pd.DataFrame(
+                    eval_data,
+                    columns=["Document", "Score", "Relevance", "Coverage", "Missing Info"]
+                )
+                st.dataframe(eval_df, use_container_width=True)
+
+        # Reasoning Table
+        reasoning_data = []
+        if 'question_relevance_score' in result and hasattr(result['question_relevance_score'], 'reasoning'):
+            reasoning_data.append(["Question Relevance", result['question_relevance_score'].reasoning])
+
+        if 'document_relevance_score' in result and hasattr(result['document_relevance_score'], 'reasoning'):
+            reasoning_data.append(["Document Relevance", result['document_relevance_score'].reasoning])
+
+        if reasoning_data:
+            st.markdown("**🧠 Evaluation Reasoning:**")
+            reasoning_df = pd.DataFrame(reasoning_data, columns=["Evaluation Type", "Reasoning"])
+            st.dataframe(reasoning_df, use_container_width=True)
