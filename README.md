@@ -3,7 +3,7 @@
 
 A production-ready Retrieval-Augmented Generation (RAG) system built with LangGraph for intelligent document question-answering with conversational memory and context awareness.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![LangChain](https://img.shields.io/badge/LangChain-latest-green.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)
 
@@ -90,7 +90,7 @@ User Query → Topic Router → [Question + Chat Context]
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| **LLM** | 🔐 **Groq (Llama 3.1 70B)** | Fast inference, cost-effective, good quality |
+| **LLM** | 🔐 **Gemini (gemini-2.0-flash)** | Fast inference, cost-effective, good quality |
 | **Embeddings** | 🆓 **HuggingFace (all-MiniLM-L6-v2)** | Privacy-first (local), no API costs, sufficient quality |
 | **Vector DB** | 🆓 **ChromaDB (local)** | Privacy-first, persistent storage, no external deps |
 | **Keyword Search** | 🆓 **BM25 (local)** | Complementary to semantic search, handles specific terms |
@@ -101,14 +101,13 @@ User Query → Topic Router → [Question + Chat Context]
 
 #### ✅ Performance
 - **High accuracy**: Hybrid retrieval (semantic + keyword) + re-ranking
-- **Fast responses**: Groq provides near-instant inference (<1s)
-- **Quality answers**: Llama 3.1 70B comparable to GPT-3.5-turbo
+- **Fast responses**: Gemini provides near-instant inference (<1s)
 
 #### 💰 Cost-Effectiveness
 - **Embeddings**: $0 (local HuggingFace models)
 - **Vector DB**: $0 (local ChromaDB)
-- **LLM**: ~$0.27/1M input tokens (Groq pricing)
-- **Total monthly cost**: <$10 for typical HR use case
+- **Mistral OCR**: $0 (Free of charge)
+- **LLM**: ~$0.10/1M input tokens (Gemini pricing)
 
 #### 🔒 Privacy-First
 - **Embeddings**: Generated locally, never leave your infrastructure
@@ -163,7 +162,8 @@ VECTOR_DB = "Pinecone"  # Managed
 ### Prerequisites
 
 ```bash
-Python 3.8+
+Python 3.12
+Used version : Python 3.12.6
 pip or conda
 ```
 
@@ -172,11 +172,13 @@ pip or conda
 1. **Clone the repository**
 ```bash
 git clone <your-repo-url>
-cd advanced-rag-system
+cd HR_Onboarding
 ```
 
 2. **Install dependencies**
 ```bash
+python -m venv venv
+source venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
@@ -188,15 +190,12 @@ cp .env.example .env
 
 ```env
 # .env
-GROQ_API_KEY=your_groq_api_key_here
-LANGSMITH_API_KEY=your_langsmith_key_here  # Optional: for monitoring
+Get your Keys from here : 
+GEMINI_API_KEY : https://aistudio.google.com/api-keys
+MISTRAL_API_KEY : https://admin.mistral.ai/organization/api-keys
+LANGSMITH_API_KEY : https://smith.langchain.com/o/8dac5531-7587-45b7-9ba8-8c0f0ebcfdc6/settings/apikeys
 ```
 
-4. **Download NLTK data** (first run only)
-```python
-import nltk
-nltk.download('punkt')
-```
 
 ## 🚀 Usage
 
@@ -211,7 +210,7 @@ Access at: `http://localhost:8501`
 ### Using the System
 
 1. **Upload Documents**
-   - Support formats: PDF, DOCX, TXT, MD
+   - Support formats: ["pdf", "png", "jpg", "jpeg", "tiff", "bmp"]
    - Multiple documents supported
    - Automatic deduplication
 
@@ -245,11 +244,12 @@ A3: For remote employees, the onboarding process is modified...
 ## 📁 Project Structure
 
 ```
-advanced-rag-system/
+Hr_Onboarding/
 ├── app.py                      # Main Streamlit application
 ├── rag_workflow.py             # LangGraph workflow orchestration
 ├── document_processor.py       # Document processing & hybrid retrieval
-├── document_loader.py          # Multi-format document loading
+├── document_loader.py          # Multi-format document loading attached to the streamlit app
+├── multimodal_loader.py        # Multi-format document loading
 ├── topic_router.py             # Query classification
 ├── state.py                    # LangGraph state definition
 ├── config.py                   # Configuration & constants
@@ -313,18 +313,16 @@ rerank_top = 5       # Re-rank top 5
 ### 4. Topic Routing
 
 Automatically classifies queries into categories:
-- Market information
-- Contact details  
-- Procedures & policies
-- Benefits & compensation
-- General inquiries
+- Market info
+- Contact   
+- Procedures
 
 Routes to specialized handling or retrieval strategies.
 
 ## 📊 Performance Metrics
 
 ### Retrieval Performance
-- **Precision@5**: ~85% (with hybrid + reranking)
+- **Precision@5**: ~85% (with hybrid + reranking) using a judge llm
 - **Response Time**: <2 seconds (average)
 - **Context Retention**: 5 previous exchanges
 
@@ -336,7 +334,7 @@ Routes to specialized handling or retrieval strategies.
 | Medium | 200 | 2000 | $8-15 |
 | Heavy | 1000 | 10000 | $40-80 |
 
-*Based on Groq pricing + local embeddings*
+*Based on Gemini pricing + local embeddings*
 
 ## 🔐 Privacy & Security
 
@@ -344,7 +342,7 @@ Routes to specialized handling or retrieval strategies.
 - ✅ Documents stored locally (ChromaDB)
 - ✅ Embeddings generated locally (HuggingFace)
 - ✅ No document content sent to external services
-- ⚠️ Query text sent to LLM API (Groq)
+- ⚠️ Query text sent to LLM API (Gemini)
 - ✅ No training on your data
 
 ### For Maximum Privacy
@@ -366,8 +364,8 @@ LLM_PROVIDER = "ollama"
 
 ```python
 # Chunking
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 50
+CHUNK_SIZE = 700
+CHUNK_OVERLAP = 150
 
 # Retrieval
 HYBRID_WEIGHTS = (0.7, 0.3)  # Semantic, Keyword
@@ -406,7 +404,7 @@ Solution: Upload a document first or check ChromaDB persistence
 
 **Issue**: Slow inference
 ```bash
-Solution: Switch to smaller model or use Groq for faster inference
+Solution: Switch to smaller model or use Gemini for faster inference
 ```
 
 **Issue**: Out of memory
@@ -420,6 +418,7 @@ Solution: Reduce CHUNK_SIZE or process fewer documents at once
 - [ ] Advanced analytics dashboard
 - [ ] Query intent classification refinement
 - [ ] Batch document processing
+- [ ] document Deletion
 - [ ] REST API endpoint
 - [ ] Docker containerization
 - [ ] Evaluation metrics dashboard
@@ -446,7 +445,7 @@ Built with:
 - [LangGraph](https://github.com/langchain-ai/langgraph) - Workflow orchestration
 - [Streamlit](https://streamlit.io) - Web interface
 - [ChromaDB](https://www.trychroma.com) - Vector database
-- [Groq](https://groq.com) - Fast LLM inference
+- [Gemini](https://Gemini.com) - Fast LLM inference
 - [HuggingFace](https://huggingface.co) - Embeddings and models
 
 ---
