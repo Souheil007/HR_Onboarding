@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # UI Configuration
-PAGE_TITLE = "Advanced RAG"
+PAGE_TITLE = "HR Onboarding Assistant"
 PAGE_ICON = "🔎"
 LAYOUT = "wide"
 SIDEBAR_STATE = "expanded"
 
 # File Processing Configuration
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 700
+CHUNK_OVERLAP = 150
 CHROMA_COLLECTION_NAME = "rag-chroma"
 CHROMA_PERSIST_DIR = "./.chroma"
 
