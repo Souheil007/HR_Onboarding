@@ -1,6 +1,6 @@
 import streamlit as st
 from langchain_core.documents import Document
-from langgraph.graph import END, StateGraph # Responsible for state management and workflow orchestration and Logging to langsmith
+from langgraph.graph import END, StateGraph
 
 from state import GraphState
 from chains.document_relevance import document_relevance
@@ -46,13 +46,28 @@ class RAGWorkflow:
             return session_retriever
         return None
     
-    def process_question(self, question):
-        """Process a question through the RAG workflow"""
+    def process_question(self, question, chat_context=""):
+        """
+        Process a question through the RAG workflow
+        
+        Args:
+            question: The current user question (used for retrieval)
+            chat_context: Previous conversation context (used for answer generation)
+        """
         print(f"STARTING RAG WORKFLOW for question: '{question}'")
+        if chat_context:
+            print(f"Chat context provided: {len(chat_context)} characters")
+        
         current_retriever = self.get_current_retriever()
         self.set_retriever(current_retriever)
         graph = self.get_graph()
-        result = graph.invoke(input={"question": question})
+        
+        # Pass both question and chat_context to the graph
+        result = graph.invoke(input={
+            "question": question,
+            "chat_context": chat_context  # Add chat context to state
+        })
+        
         print(f"RAG WORKFLOW COMPLETED")
         return result
     
@@ -89,12 +104,19 @@ class RAGWorkflow:
     def _retrieve(self, state: GraphState):
         """Retrieve documents relevant to the user's question"""
         print("GRAPH STATE: Retrieve Documents")
-        question = state["question"]    
+        
+        # CRITICAL FIX: Use only the original question for retrieval
+        question = state["question"]
+        
+        print(f"Retrieving documents using ORIGINAL question: '{question}'")
+        
         current_retriever = self.get_current_retriever()
         if current_retriever is None:
             print("No retriever available, returning empty document list")
             return {"documents": [], "question": question}
+        
         try:
+            # Retrieve using ONLY the current question
             documents = current_retriever(question)
             print(f"Retrieved {len(documents)} documents")
             return {"documents": documents, "question": question}
@@ -122,9 +144,26 @@ class RAGWorkflow:
     def _generate_answer(self, state: GraphState):
         """Generate an answer based on the retrieved documents"""
         print("GRAPH STATE: Generate Answer")
+        
+        # Get the original question and chat context
         question = state["question"]
+        chat_context = state.get("chat_context", "")
         documents = state["documents"]
-        solution = generate_chain.invoke({"context": documents, "question": question})
+        
+        # If chat context exists, create a contextualized question for the LLM
+        if chat_context:
+            contextualized_question = f"{chat_context}\n{question}"
+            print(f"Using contextualized question for answer generation (with {len(chat_context)} chars of context)")
+        else:
+            contextualized_question = question
+            print("No chat context, using original question")
+        
+        # Generate answer with contextualized question but documents retrieved from original question
+        solution = generate_chain.invoke({
+            "context": documents, 
+            "question": contextualized_question  # LLM sees full context
+        })
+        
         print(f"Answer generated: {len(solution)} characters")
         
         # Check relevance

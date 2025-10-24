@@ -61,6 +61,7 @@ def handle_question_processing(question):
     """Handle the Q&A processing workflow with conversation history"""
     # Debug info
     print(f"Processing question: {question}")
+    
     # Detect topic
     topic = topic_router.detect_topic(question)
     print(f"Detected topic: {topic}")
@@ -68,17 +69,14 @@ def handle_question_processing(question):
     # Format the question with chat history context
     chat_context = format_chat_history_for_context()
     
-    # Create enhanced question with context
-    if chat_context:
-        contextualized_question = f"{chat_context}\n{question}"
-        print(f"Added chat history context to question")
-    else:
-        contextualized_question = question
-    
+    # THIS IS THE KEY PART - Keep it exactly like this:
     with st.container():
         with st.spinner(f'🧠 Analyzing your question in topic "{topic}" and retrieving relevant information...'):
-            # Process the question with context - workflow will handle retriever automatically
-            result = rag_workflow.process_question(contextualized_question)
+            # Pass BOTH parameters separately
+            result = rag_workflow.process_question(
+                question=question,        # Used for retrieval
+                chat_context=chat_context # Used for answer generation
+            )
         
         # Add to chat history (store original question, not contextualized)
         if result and 'solution' in result:

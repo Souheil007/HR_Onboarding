@@ -33,6 +33,7 @@ class GraphState(TypedDict):
     solution: str
     documents: List[str]
     topic : Optional[str]   # Detected topic of the question
+    chat_context: Optional[str]
     document_evaluations: Optional[List[Dict[str, Any]]]  # Store document evaluation results
     document_relevance_score: Optional[Dict[str, Any]]  # Store document relevance check
     question_relevance_score: Optional[Dict[str, Any]]  # Store question relevance check
