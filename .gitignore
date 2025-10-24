@@ -1,0 +1,15 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.env
+
+# Local ChromaDB storage
+.chroma/
+
+# OS files
+.DS_Store
+Thumbs.db
