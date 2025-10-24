@@ -412,22 +412,6 @@ Automatically classifies queries into categories:
 
 Routes to specialized handling or retrieval strategies.
 
-## 📊 Performance Metrics
-
-### Retrieval Performance
-- **Precision@5**: ~85% (with hybrid + reranking) using a judge llm
-- **Response Time**: <2 seconds (average)
-- **Context Retention**: 5 previous exchanges
-
-### Cost Analysis (Monthly Estimates)
-
-| Usage Level | Documents | Queries | Cost |
-|-------------|-----------|---------|------|
-| Light | 50 | 500 | $2-5 |
-| Medium | 200 | 2000 | $8-15 |
-| Heavy | 1000 | 10000 | $40-80 |
-
-*Based on Gemini pricing + local embeddings*
 
 ## 🔐 Privacy & Security
 
@@ -465,9 +449,6 @@ HYBRID_WEIGHTS = (0.7, 0.3)  # Semantic, Keyword
 TOP_K = 10
 RERANK_TOP = 5
 
-# LLM
-LLM_TEMPERATURE = 0.1
-MAX_TOKENS = 1000
 
 # Chat History
 MAX_HISTORY_EXCHANGES = 5
